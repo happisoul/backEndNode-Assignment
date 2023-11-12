@@ -1,0 +1,314 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions Dashboard</title>
+  <!-- Include Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+}
+
+label {
+  margin-right: 10px;
+}
+
+select, input[type="text"] {
+  padding: 5px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+button {
+  padding: 8px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+table, th, td {
+  border: 1px solid #ddd;
+}
+
+th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+}
+
+@media (max-width: 600px) {
+      th, td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      th {
+        text-align: center;
+      }
+
+      table {
+        overflow-x: auto;
+      }
+    }
+
+thead {
+  background-color: #f2f2f2;
+}
+
+#statisticsBox {
+  margin-top: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+}
+
+#barChartCanvas {
+  margin-top: 20px;
+  max-width: 600px; /* Adjust as needed */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media only screen and (max-width: 600px) {
+  /* Add styles for mobile devices */
+  table, th, td {
+    font-size: 12px;
+  }
+
+  select, input[type="text"], button {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  #barChartCanvas {
+    width: 100%;
+  }
+}
+#searchInput {
+  display: none;
+}
+
+#Next,#Previous {
+  display: none;
+}
+
+  </style>
+</head>
+<body>
+  <label for="monthDropdown">Select a Month:</label>
+  <select id="monthDropdown">
+    <option value="1">January</option>
+    <option value="2">February</option>
+    <option value="3" selected>March</option>
+    <option value="4">April</option>
+    <option value="5">May</option>
+    <option value="6">June</option>
+    <option value="7">July</option>
+    <option value="8">August</option>
+    <option value="9">September</option>
+    <option value="10">October</option>
+    <option value="11">November</option>
+    <option value="12">December</option>
+  </select>
+
+  <input type="text" id="searchInput" placeholder="Search transactions..." disabled/>
+  <button onclick="searchTransactions()">Search</button>
+  <!-- <button onclick="clearSearch()">Clear</button> -->
+
+  <table id="transactionsTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Sold</th>
+        <th>Image URL</th>
+      </tr>
+    </thead>
+    <tbody id="transactionsBody">
+      <!-- Transaction data will be populated here -->
+    </tbody>
+  </table>
+
+  <div id="statisticsBox">
+    <!-- Statistics data will be populated here -->
+  </div>
+
+  <canvas id="barChartCanvas" width="400" height="200"></canvas>
+
+  <button id="Previous" onclick="loadPreviousPage()">Previous</button>
+  <button id="Next" onclick="loadNextPage()">Next</button>
+
+  <script>
+    const monthDropdown = document.getElementById('monthDropdown');
+    const searchInput = document.getElementById('searchInput');
+    const transactionsTable = document.getElementById('transactionsTable');
+    const transactionsBody = document.getElementById('transactionsBody');
+    const statisticsBox = document.getElementById('statisticsBox');
+    const barChartCanvas = document.getElementById('barChartCanvas');
+    let currentPage = 1;
+  
+    async function fetchTransactions() {
+      try {
+        const selectedMonth = monthDropdown.value;
+        const searchQuery = searchInput.value || '';
+        const response = await fetch(`http://localhost:3000/api/transactions/${selectedMonth}?page=${currentPage}&search=${searchQuery}`);
+        if (!response.ok) {
+          throw new Error('Error fetching transactions data');
+        }
+  
+        const data = await response.json();
+        updateTransactionsTable(data);
+        fetchStatistics();
+      } catch (error) {
+        console.error(error.message);
+      }
+    }
+  
+    async function fetchStatistics() {
+  try {
+    const selectedMonth = monthDropdown.value;
+    const response = await fetch(`http://localhost:3000/api/statistics/${selectedMonth}`);
+    if (!response.ok) {
+      throw new Error('Error fetching statistics data');
+    }
+
+    const data = await response.json();
+    console.log('Statistics Data:', data);  // Log the data
+    updateStatisticsBox(data);
+    fetchBarChartData();
+  } catch (error) {
+    console.error(error.message);
+  }
+}
+
+async function fetchBarChartData() {
+  try {
+    const selectedMonth = monthDropdown.value;
+    const response = await fetch(`http://localhost:3000/api/bar-chart/${selectedMonth}`);
+    if (!response.ok) {
+      throw new Error('Error fetching bar chart data');
+    }
+
+    const data = await response.json();
+    console.log('Bar Chart Data:', data);  // Log the data
+    updateBarChart(barChartCanvas, data);
+  } catch (error) {
+    console.error(error.message);
+  }
+}
+
+  
+    function updateTransactionsTable(data) {
+      const tableBody = document.getElementById('transactionsBody');
+      tableBody.innerHTML = '';
+  
+      data.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.id}</td>
+          <td>${item.title}</td>
+          <td>${item.description}</td>
+          <td>${item.category}</td>
+          <td>${item.price}</td>
+          <td>${item.sold}</td>
+          <td>${item.image}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+  
+    function updateStatisticsBox(data) {
+      if (data) {
+        statisticsBox.innerHTML = `
+          <p>Total Sale Amount: ${data.totalSaleAmount}</p>
+          <p>Total Sold Items: ${data.totalSoldItems}</p>
+          <p>Total Not Sold Items: ${data.totalNotSoldItems}</p>`;
+      } else {
+        statisticsBox.innerHTML = '<p>No data available for the selected month.</p>';
+      }
+    }
+  
+    // Helper function to update the Bar Chart using Chart.js
+    // Helper function to update the Bar Chart using Chart.js
+function updateBarChart(container, data) {
+  const ctx = container.getContext('2d');
+
+  if (window.myBarChart) {
+    window.myBarChart.destroy();
+  }
+
+  const labels = data.map(item => item.range);
+  const counts = data.map(item => item.count);
+
+  window.myBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Number of Items',
+        data: counts,
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        x: {
+          beginAtZero: true
+        },
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+  
+    function searchTransactions() {
+      currentPage = 1;
+      fetchTransactions();
+    }
+  
+    function clearSearch() {
+      searchInput.value = '';
+      fetchTransactions();
+    }
+  
+    function loadPreviousPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        fetchTransactions();
+      }
+    }
+  
+    function loadNextPage() {
+      currentPage++;
+      fetchTransactions();
+    }
+  
+    fetchTransactions();
+  </script>
+  
+</body>
+</html>
